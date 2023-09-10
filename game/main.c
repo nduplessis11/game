@@ -34,44 +34,44 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         goto Exit;
     }
 
-g_video_buffer.bitmap_info.bmiHeader.biSize =
-sizeof(g_video_buffer.bitmap_info.bmiHeader);
-g_video_buffer.bitmap_info.bmiHeader.biWidth = GAME_WIDTH;
-g_video_buffer.bitmap_info.bmiHeader.biHeight = GAME_HEIGHT;
-g_video_buffer.bitmap_info.bmiHeader.biBitCount = GAME_BPP;
-g_video_buffer.bitmap_info.bmiHeader.biCompression = BI_RGB;
-g_video_buffer.bitmap_info.bmiHeader.biPlanes = 1;
-g_video_buffer.memory = VirtualAlloc(NULL, GAME_FRAME_SIZE,
-                                     MEM_RESERVE | MEM_COMMIT,
-                                     PAGE_READWRITE);
-if (g_video_buffer.memory == NULL)
-{
-    MessageBoxA(NULL, "Failed to allocate frame buffer!", "Error!",
-                MB_ICONEXCLAMATION | MB_OK);
-    goto Exit;
-}
-
-memset(g_video_buffer.memory, 0xAF, GAME_FRAME_SIZE);
-
-g_game_is_running = TRUE;
-
-while (g_game_is_running == TRUE)
-{
-    MSG message = { 0 };
-    while (PeekMessageA(&message, g_window, 0, 0, PM_REMOVE))
+    g_video_buffer.bitmap_info.bmiHeader.biSize =
+        sizeof(g_video_buffer.bitmap_info.bmiHeader);
+    g_video_buffer.bitmap_info.bmiHeader.biWidth = GAME_WIDTH;
+    g_video_buffer.bitmap_info.bmiHeader.biHeight = GAME_HEIGHT;
+    g_video_buffer.bitmap_info.bmiHeader.biBitCount = GAME_BPP;
+    g_video_buffer.bitmap_info.bmiHeader.biCompression = BI_RGB;
+    g_video_buffer.bitmap_info.bmiHeader.biPlanes = 1;
+    g_video_buffer.memory = VirtualAlloc(NULL, GAME_FRAME_SIZE,
+                                         MEM_RESERVE | MEM_COMMIT,
+                                         PAGE_READWRITE);
+    if (g_video_buffer.memory == NULL)
     {
-        TranslateMessage(&message);
-        DispatchMessageA(&message);
+        MessageBoxA(NULL, "Failed to allocate frame buffer!", "Error!",
+                    MB_ICONEXCLAMATION | MB_OK);
+        goto Exit;
     }
 
-    process_player_input();
-    render_graphics();
+    memset(g_video_buffer.memory, 0xAF, GAME_FRAME_SIZE);
 
-    Sleep(1);
-}
+    g_game_is_running = TRUE;
+
+    while (g_game_is_running == TRUE)
+    {
+        MSG message = { 0 };
+        while (PeekMessageA(&message, g_window, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&message);
+            DispatchMessageA(&message);
+        }
+
+        process_player_input();
+        render_graphics();
+
+        Sleep(1);
+    }
 
 Exit:
-return 0;
+    return 0;
 }
 
 LRESULT CALLBACK main_window_procedure(_In_ HWND window, _In_ UINT message,
