@@ -11,6 +11,8 @@ HWND g_window = { 0 };
 BOOL g_game_is_running = FALSE;
 GameBitmap g_video_buffer = { 0 };
 MONITORINFO g_monitor_info = { sizeof(MONITORINFO) };
+int32_t g_monitor_width = 0;
+int32_t g_monitor_height = 0;
 
 int WINAPI WinMain(_In_ HINSTANCE instance,
                    _In_opt_ HINSTANCE previous_instance,
@@ -141,10 +143,28 @@ DWORD create_game_window(_In_ HINSTANCE instance)
         goto Exit;
     }
 
-    int monitor_width =
+    g_monitor_width =
         g_monitor_info.rcMonitor.right - g_monitor_info.rcMonitor.left;
-    int monitor_height =
+    g_monitor_height =
         g_monitor_info.rcMonitor.bottom - g_monitor_info.rcMonitor.top;
+
+    if (SetWindowLongPtrA(g_window, GWL_STYLE, WS_VISIBLE) == 0)
+    {
+        result = GetLastError();
+        MessageBoxA(NULL, "Failed to set window to borderless fullscreen!", 
+                    "Error!", MB_ICONEXCLAMATION | MB_OK);
+        goto Exit;
+    }
+
+    if (SetWindowPos(g_window, HWND_TOP, g_monitor_info.rcMonitor.left,
+                     g_monitor_info.rcMonitor.top, g_monitor_width,
+                     g_monitor_height, SWP_FRAMECHANGED) == FALSE)
+    {
+        result = GetLastError();
+        MessageBoxA(NULL, "Failed to set window position!", "Error!",
+                    MB_ICONEXCLAMATION | MB_OK);
+        goto Exit;
+    }
 
 Exit:
     return result;
@@ -178,11 +198,23 @@ void process_player_input(void)
 
 void render_graphics(void)
 {
+    Pixel32 pixel = { 0 };
+    pixel.blue = 0x00;
+    pixel.green = 0xff;
+    pixel.red = 0x00;
+    pixel.alpha = 0xff;
+
+    // Draw grass
+    for (int x = 0; x < (GAME_WIDTH * GAME_HEIGHT) / 2; x++)
+    {
+        memcpy((Pixel32*)g_video_buffer.memory + x, &pixel, sizeof(pixel));
+    }
+
     HDC device_context = GetDC(g_window);
 
     // Might replace with BitBlit if performance is needing
-    StretchDIBits(device_context, 0, 0, GAME_WIDTH * 3, GAME_HEIGHT * 3, 0, 0,
-                  GAME_WIDTH, GAME_HEIGHT, g_video_buffer.memory,
+    StretchDIBits(device_context, 0, 0, g_monitor_width, g_monitor_height, 0,
+                  0, GAME_WIDTH, GAME_HEIGHT, g_video_buffer.memory,
                   &g_video_buffer.bitmap_info, DIB_RGB_COLORS, SRCCOPY);
 
     ReleaseDC(g_window, device_context);

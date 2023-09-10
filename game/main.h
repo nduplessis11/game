@@ -20,8 +20,7 @@ typedef struct Pixel32
     uint8_t alpha;
 } Pixel32;
 
-LRESULT CALLBACK main_window_procedure(_In_ HWND window,
-                                       _In_ UINT message,
+LRESULT CALLBACK main_window_procedure(_In_ HWND window, _In_ UINT message,
                                        _In_ WPARAM w_param,
                                        _In_ LPARAM l_param);
 DWORD create_game_window(_In_ HINSTANCE instance);
