@@ -21,6 +21,13 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
     UNREFERENCED_PARAMETER(command_line);
     UNREFERENCED_PARAMETER(command_show);
 
+    MSG message = { 0 };
+    int64_t frame_start = { 0 };
+    int64_t frame_end = { 0 };
+    int64_t elapsed_microseconds = { 0 };
+    int64_t frequency = { 0 };
+
+
     if (another_instance_is_active() == TRUE)
     {
         MessageBoxA(NULL,
@@ -34,7 +41,8 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
     {
         goto Exit;
     }
-    QueryPerformanceFrequency(&g_perf_metrics.frequency);
+
+    QueryPerformanceFrequency(&frequency);
 
     g_video_buffer.bitmap_info.bmiHeader.biSize =
         sizeof(g_video_buffer.bitmap_info.bmiHeader);
@@ -57,10 +65,9 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
 
     g_game_is_running = TRUE;
 
-    MSG message = { 0 };
     while (g_game_is_running == TRUE)
     {
-        QueryPerformanceCounter(&g_perf_metrics.frame_start);
+        QueryPerformanceCounter(&frame_start);
         while (PeekMessageA(&message, g_window, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&message);
@@ -70,24 +77,21 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         process_player_input();
         render_graphics();
 
-        QueryPerformanceCounter(&g_perf_metrics.frame_end);
+        QueryPerformanceCounter(&frame_end);
 
-        g_perf_metrics.elapsed_microseconds.QuadPart =
-            g_perf_metrics.frame_end.QuadPart -
-            g_perf_metrics.frame_start.QuadPart;
+        elapsed_microseconds = frame_end - frame_start;
 
-        g_perf_metrics.elapsed_microseconds.QuadPart *= 1000000;
-        g_perf_metrics.elapsed_microseconds.QuadPart /=
-            g_perf_metrics.frequency.QuadPart;
+        elapsed_microseconds *= 1000000;
+        elapsed_microseconds /= frequency;
 
         Sleep(1);
-        g_perf_metrics.total_frames_rendered++;
-        if (g_perf_metrics.total_frames_rendered % AVG_FPS_SAMPLE_SIZE == 0)
+        g_perf_metrics.total_frames++;
+        if (g_perf_metrics.total_frames % AVG_FPS_SAMPLE_SIZE == 0)
         {
             char str[64] = { 0 };
             _snprintf_s(str, _countof(str), _TRUNCATE,
                         "Elapsed microseconds: %lli\n",
-                        g_perf_metrics.elapsed_microseconds.QuadPart);
+                        elapsed_microseconds);
 
             OutputDebugStringA(str);
         }
@@ -123,6 +127,8 @@ DWORD create_game_window(_In_ HINSTANCE instance)
     DWORD result = ERROR_SUCCESS;
     WNDCLASSEXA window_class = { 0 };
     const char CLASS_NAME[] = GAME_NAME "_WINDOW_CLASS";
+    MONITORINFO monitor_info = { sizeof(MONITORINFO) };
+    HMONITOR monitor = { 0 };
 
     window_class.cbSize = sizeof(WNDCLASSEXA);
     window_class.lpfnWndProc = main_window_procedure;
@@ -154,8 +160,6 @@ DWORD create_game_window(_In_ HINSTANCE instance)
         goto Exit;
     }
 
-    MONITORINFO monitor_info = { sizeof(MONITORINFO) };
-    HMONITOR monitor = { 0 };
     monitor = MonitorFromWindow(g_window, MONITOR_DEFAULTTOPRIMARY);
     if (GetMonitorInfoA(monitor, &monitor_info) == 0)
     {
@@ -167,11 +171,9 @@ DWORD create_game_window(_In_ HINSTANCE instance)
 
     // In dual monitor setups position could be nonzero
     g_perf_metrics.monitor_width =
-        monitor_info.rcMonitor.right -
-        monitor_info.rcMonitor.left;
+        monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
     g_perf_metrics.monitor_height =
-        monitor_info.rcMonitor.bottom -
-        monitor_info.rcMonitor.top;
+        monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top;
 
     if (SetWindowLongPtrA(g_window, GWL_STYLE, WS_VISIBLE) == 0)
     {

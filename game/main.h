@@ -26,13 +26,9 @@ typedef struct Pixel32
 
 typedef struct PerformanceMetrics
 {
-    uint64_t total_frames_rendered;
+    uint64_t total_frames;
     uint32_t raw_fps_avg;
     uint32_t fps_avg;
-    LARGE_INTEGER frequency;
-    LARGE_INTEGER frame_start;
-    LARGE_INTEGER frame_end;
-    LARGE_INTEGER elapsed_microseconds;
     int32_t monitor_width;
     int32_t monitor_height;
 } PerformanceMetrics;
