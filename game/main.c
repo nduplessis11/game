@@ -3,6 +3,7 @@
 #include <windows.h>
 #pragma warning(pop)
 
+#include <stdio.h>
 #include <stdint.h>
 
 #include "main.h"
@@ -10,9 +11,7 @@
 HWND g_window = { 0 };
 BOOL g_game_is_running = FALSE;
 GameBitmap g_video_buffer = { 0 };
-MONITORINFO g_monitor_info = { sizeof(MONITORINFO) };
-int32_t g_monitor_width = 0;
-int32_t g_monitor_height = 0;
+PerformanceMetrics g_perf_metrics = { 0 };
 
 int WINAPI WinMain(_In_ HINSTANCE instance,
                    _In_opt_ HINSTANCE previous_instance,
@@ -35,6 +34,7 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
     {
         goto Exit;
     }
+    QueryPerformanceFrequency(&g_perf_metrics.frequency);
 
     g_video_buffer.bitmap_info.bmiHeader.biSize =
         sizeof(g_video_buffer.bitmap_info.bmiHeader);
@@ -57,9 +57,10 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
 
     g_game_is_running = TRUE;
 
+    MSG message = { 0 };
     while (g_game_is_running == TRUE)
     {
-        MSG message = { 0 };
+        QueryPerformanceCounter(&g_perf_metrics.frame_start);
         while (PeekMessageA(&message, g_window, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&message);
@@ -69,7 +70,27 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         process_player_input();
         render_graphics();
 
+        QueryPerformanceCounter(&g_perf_metrics.frame_end);
+
+        g_perf_metrics.elapsed_microseconds.QuadPart =
+            g_perf_metrics.frame_end.QuadPart -
+            g_perf_metrics.frame_start.QuadPart;
+
+        g_perf_metrics.elapsed_microseconds.QuadPart *= 1000000;
+        g_perf_metrics.elapsed_microseconds.QuadPart /=
+            g_perf_metrics.frequency.QuadPart;
+
         Sleep(1);
+        g_perf_metrics.total_frames_rendered++;
+        if (g_perf_metrics.total_frames_rendered % AVG_FPS_SAMPLE_SIZE == 0)
+        {
+            char str[64] = { 0 };
+            _snprintf_s(str, _countof(str), _TRUNCATE,
+                        "Elapsed microseconds: %lli\n",
+                        g_perf_metrics.elapsed_microseconds.QuadPart);
+
+            OutputDebugStringA(str);
+        }
     }
 
 Exit:
@@ -133,9 +154,10 @@ DWORD create_game_window(_In_ HINSTANCE instance)
         goto Exit;
     }
 
+    MONITORINFO monitor_info = { sizeof(MONITORINFO) };
     HMONITOR monitor = { 0 };
     monitor = MonitorFromWindow(g_window, MONITOR_DEFAULTTOPRIMARY);
-    if (GetMonitorInfoA(monitor, &g_monitor_info) == 0)
+    if (GetMonitorInfoA(monitor, &monitor_info) == 0)
     {
         result = ERROR_MONITOR_NO_DESCRIPTOR;
         MessageBoxA(NULL, "Failed to get monitor info!", "Error!",
@@ -143,22 +165,28 @@ DWORD create_game_window(_In_ HINSTANCE instance)
         goto Exit;
     }
 
-    g_monitor_width =
-        g_monitor_info.rcMonitor.right - g_monitor_info.rcMonitor.left;
-    g_monitor_height =
-        g_monitor_info.rcMonitor.bottom - g_monitor_info.rcMonitor.top;
+    // In dual monitor setups position could be nonzero
+    g_perf_metrics.monitor_width =
+        monitor_info.rcMonitor.right -
+        monitor_info.rcMonitor.left;
+    g_perf_metrics.monitor_height =
+        monitor_info.rcMonitor.bottom -
+        monitor_info.rcMonitor.top;
 
     if (SetWindowLongPtrA(g_window, GWL_STYLE, WS_VISIBLE) == 0)
     {
         result = GetLastError();
-        MessageBoxA(NULL, "Failed to set window to borderless fullscreen!", 
+        MessageBoxA(NULL, "Failed to set window to borderless fullscreen!",
                     "Error!", MB_ICONEXCLAMATION | MB_OK);
         goto Exit;
     }
 
-    if (SetWindowPos(g_window, HWND_TOP, g_monitor_info.rcMonitor.left,
-                     g_monitor_info.rcMonitor.top, g_monitor_width,
-                     g_monitor_height, SWP_FRAMECHANGED) == FALSE)
+    if (SetWindowPos(g_window, HWND_TOP,
+                     monitor_info.rcMonitor.left,
+                     monitor_info.rcMonitor.top,
+                     g_perf_metrics.monitor_width,
+                     g_perf_metrics.monitor_height,
+                     SWP_FRAMECHANGED) == FALSE)
     {
         result = GetLastError();
         MessageBoxA(NULL, "Failed to set window position!", "Error!",
@@ -198,23 +226,39 @@ void process_player_input(void)
 
 void render_graphics(void)
 {
-    Pixel32 pixel = { 0 };
-    pixel.blue = 0x00;
-    pixel.green = 0xff;
-    pixel.red = 0x00;
-    pixel.alpha = 0xff;
+    Pixel32 green_pixel = { 0 };
+    green_pixel.blue = 0x00;
+    green_pixel.green = 0x6c;
+    green_pixel.red = 0x00;
+    green_pixel.alpha = 0xff;
+
+    Pixel32 blue_pixel = { 0 };
+    blue_pixel.blue = 0xea;
+    blue_pixel.green = 0x00;
+    blue_pixel.red = 0x00;
+    blue_pixel.alpha = 0xff;
 
     // Draw grass
     for (int x = 0; x < (GAME_WIDTH * GAME_HEIGHT) / 2; x++)
     {
-        memcpy((Pixel32*)g_video_buffer.memory + x, &pixel, sizeof(pixel));
+        memcpy_s((Pixel32*)g_video_buffer.memory + x, sizeof(green_pixel),
+                 &green_pixel, sizeof(green_pixel));
+    }
+
+    // Draw sky
+    for (int x = (GAME_WIDTH * GAME_HEIGHT) / 2;
+         x < (GAME_WIDTH * GAME_HEIGHT); x++)
+    {
+        memcpy_s((Pixel32*)g_video_buffer.memory + x, sizeof(blue_pixel),
+                 &blue_pixel, sizeof(blue_pixel));
     }
 
     HDC device_context = GetDC(g_window);
 
     // Might replace with BitBlit if performance is needing
-    StretchDIBits(device_context, 0, 0, g_monitor_width, g_monitor_height, 0,
-                  0, GAME_WIDTH, GAME_HEIGHT, g_video_buffer.memory,
+    StretchDIBits(device_context, 0, 0, g_perf_metrics.monitor_width,
+                  g_perf_metrics.monitor_height, 0, 0, GAME_WIDTH,
+                  GAME_HEIGHT, g_video_buffer.memory,
                   &g_video_buffer.bitmap_info, DIB_RGB_COLORS, SRCCOPY);
 
     ReleaseDC(g_window, device_context);
