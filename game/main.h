@@ -6,6 +6,7 @@
 #define GAME_BPP 32
 #define GAME_FRAME_SIZE (GAME_WIDTH * GAME_HEIGHT * (GAME_BPP / 8))
 #define AVG_FPS_SAMPLE_SIZE 100 
+#define TARGET_MICROSECONDS_PER_FRAME 16667
 
 #pragma warning(disable: 4820) // Disable structure padding warning
 #pragma warning(disable: 5045) // Disable Spectre warning
@@ -18,7 +19,7 @@ typedef struct GameBitmap
 
 typedef struct Pixel32
 {
-    uint8_t blue;
+    uint8_t blue; 
     uint8_t green;
     uint8_t red;
     uint8_t alpha;
@@ -26,9 +27,7 @@ typedef struct Pixel32
 
 typedef struct PerformanceMetrics
 {
-    uint64_t total_frames;
-    uint32_t raw_fps_avg;
-    uint32_t fps_avg;
+    double fps_avg;
     int32_t monitor_width;
     int32_t monitor_height;
 } PerformanceMetrics;
