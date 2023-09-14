@@ -1,21 +1,21 @@
 #pragma once
 
 #define GAME_NAME "GAME"
-#define GAME_WIDTH 400
-#define GAME_HEIGHT 240
-#define GAME_BPP 32
-#define GAME_FRAME_SIZE (GAME_WIDTH * GAME_HEIGHT * (GAME_BPP / 8))
+#define VID_BUFFER_WIDTH 400
+#define VID_BUFFER_HEIGHT 240
+#define VID_BPP 32
+#define VID_BUFFER_SIZE (VID_BUFFER_WIDTH * VID_BUFFER_HEIGHT * (VID_BPP / 8))
 #define AVG_FPS_SAMPLE_SIZE 100 
 #define TARGET_MICROSECONDS_PER_FRAME 16667
 
 #pragma warning(disable: 4820) // Disable structure padding warning
 #pragma warning(disable: 5045) // Disable Spectre warning
 
-typedef struct GameBitmap
+typedef struct VideoBitmap
 {
     BITMAPINFO bitmap_info;
     void* memory;
-} GameBitmap;
+} VideoBitmap;
 
 typedef struct Pixel32
 {

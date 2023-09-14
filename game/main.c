@@ -10,7 +10,7 @@
 
 HWND g_window = { 0 };
 BOOL g_game_is_running = FALSE;
-GameBitmap g_video_buffer = { 0 };
+VideoBitmap g_vid_buffer = { 0 };
 PerformanceMetrics g_perf_metrics = { 0 };
 
 int WINAPI WinMain(_In_ HINSTANCE instance,
@@ -35,35 +35,37 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         MessageBoxA(NULL,
                     "Another instance of this program is already running!",
                     "Error!", MB_ICONEXCLAMATION | MB_OK);
-
         goto Exit;
     }
 
     if (create_game_window(instance) != ERROR_SUCCESS)
     {
+        MessageBoxA(NULL,
+                    "Something went wrong!",
+                    "Error!", MB_ICONEXCLAMATION | MB_OK);
         goto Exit;
     }
 
     QueryPerformanceFrequency((LARGE_INTEGER*)&frequency);
 
-    g_video_buffer.bitmap_info.bmiHeader.biSize =
-        sizeof(g_video_buffer.bitmap_info.bmiHeader);
-    g_video_buffer.bitmap_info.bmiHeader.biWidth = GAME_WIDTH;
-    g_video_buffer.bitmap_info.bmiHeader.biHeight = GAME_HEIGHT;
-    g_video_buffer.bitmap_info.bmiHeader.biBitCount = GAME_BPP;
-    g_video_buffer.bitmap_info.bmiHeader.biCompression = BI_RGB;
-    g_video_buffer.bitmap_info.bmiHeader.biPlanes = 1;
-    g_video_buffer.memory = VirtualAlloc(NULL, GAME_FRAME_SIZE,
-                                         MEM_RESERVE | MEM_COMMIT,
-                                         PAGE_READWRITE);
-    if (g_video_buffer.memory == NULL)
+    g_vid_buffer.bitmap_info.bmiHeader.biSize =
+        sizeof(g_vid_buffer.bitmap_info.bmiHeader);
+    g_vid_buffer.bitmap_info.bmiHeader.biWidth = VID_BUFFER_WIDTH;
+    g_vid_buffer.bitmap_info.bmiHeader.biHeight = VID_BUFFER_HEIGHT;
+    g_vid_buffer.bitmap_info.bmiHeader.biBitCount = VID_BPP;
+    g_vid_buffer.bitmap_info.bmiHeader.biCompression = BI_RGB;
+    g_vid_buffer.bitmap_info.bmiHeader.biPlanes = 1;
+    g_vid_buffer.memory = VirtualAlloc(NULL, VID_BUFFER_SIZE,
+                                       MEM_RESERVE | MEM_COMMIT,
+                                       PAGE_READWRITE);
+    if (g_vid_buffer.memory == NULL)
     {
-        MessageBoxA(NULL, "Failed to allocate frame buffer!", "Error!",
+        MessageBoxA(NULL, "Failed to allocate video buffer!", "Error!",
                     MB_ICONEXCLAMATION | MB_OK);
         goto Exit;
     }
 
-    memset(g_video_buffer.memory, 0xAF, GAME_FRAME_SIZE);
+    memset(g_vid_buffer.memory, 0xAF, VID_BUFFER_SIZE);
 
     g_game_is_running = TRUE;
 
@@ -82,6 +84,7 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         total_frames++;
         total_microseconds += microseconds_per_frame;
 
+        // Spend the same amount of time on each frame
         while (microseconds_per_frame < TARGET_MICROSECONDS_PER_FRAME)
         {
             QueryPerformanceCounter((LARGE_INTEGER*)&frame_end);
@@ -95,7 +98,7 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         {
             char str[64] = { 0 };
 
-            g_perf_metrics.fps_avg = 
+            g_perf_metrics.fps_avg =
                 AVG_FPS_SAMPLE_SIZE / (total_microseconds * 0.000001f);
 
             _snprintf_s(str, _countof(str), _TRUNCATE,
@@ -159,8 +162,9 @@ DWORD create_game_window(_In_ HINSTANCE instance)
 
     g_window = CreateWindowExA(0, CLASS_NAME, GAME_NAME,
                                WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT,
-                               CW_USEDEFAULT, GAME_WIDTH * 3, GAME_HEIGHT * 3,
-                               NULL, NULL, instance, NULL);
+                               CW_USEDEFAULT, VID_BUFFER_WIDTH * 3,
+                               VID_BUFFER_HEIGHT * 3, NULL, NULL, instance,
+                               NULL);
 
     if (g_window == NULL)
     {
@@ -179,7 +183,7 @@ DWORD create_game_window(_In_ HINSTANCE instance)
         goto Exit;
     }
 
-    // In dual monitor setups position could be nonzero
+    // In dual monitor setups screen position(s) could be > (0, 0)
     g_perf_metrics.monitor_width =
         monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
     g_perf_metrics.monitor_height =
@@ -251,17 +255,17 @@ void render_graphics(void)
     blue_pixel.alpha = 0xff;
 
     // Draw grass
-    for (int x = 0; x < (GAME_WIDTH * GAME_HEIGHT) / 2; x++)
+    for (int x = 0; x < (VID_BUFFER_WIDTH * VID_BUFFER_HEIGHT) / 2; x++)
     {
-        memcpy_s((Pixel32*)g_video_buffer.memory + x, sizeof(green_pixel),
+        memcpy_s((Pixel32*)g_vid_buffer.memory + x, sizeof(green_pixel),
                  &green_pixel, sizeof(green_pixel));
     }
 
     // Draw sky
-    for (int x = (GAME_WIDTH * GAME_HEIGHT) / 2;
-         x < (GAME_WIDTH * GAME_HEIGHT); x++)
+    for (int x = (VID_BUFFER_WIDTH * VID_BUFFER_HEIGHT) / 2;
+         x < (VID_BUFFER_WIDTH * VID_BUFFER_HEIGHT); x++)
     {
-        memcpy_s((Pixel32*)g_video_buffer.memory + x, sizeof(blue_pixel),
+        memcpy_s((Pixel32*)g_vid_buffer.memory + x, sizeof(blue_pixel),
                  &blue_pixel, sizeof(blue_pixel));
     }
 
@@ -269,9 +273,9 @@ void render_graphics(void)
 
     // Might replace with BitBlit if performance is needing
     StretchDIBits(device_context, 0, 0, g_perf_metrics.monitor_width,
-                  g_perf_metrics.monitor_height, 0, 0, GAME_WIDTH,
-                  GAME_HEIGHT, g_video_buffer.memory,
-                  &g_video_buffer.bitmap_info, DIB_RGB_COLORS, SRCCOPY);
+                  g_perf_metrics.monitor_height, 0, 0, VID_BUFFER_WIDTH,
+                  VID_BUFFER_HEIGHT, g_vid_buffer.memory,
+                  &g_vid_buffer.bitmap_info, DIB_RGB_COLORS, SRCCOPY);
 
     ReleaseDC(g_window, device_context);
 }
