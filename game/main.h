@@ -1,4 +1,6 @@
 #pragma once
+#pragma warning(disable: 4820) // Disable structure padding warning
+#pragma warning(disable: 5045) // Disable Spectre warning
 
 #define GAME_NAME "GAME"
 #define VID_BUFFER_WIDTH 400
@@ -8,8 +10,7 @@
 #define AVG_FPS_SAMPLE_SIZE 100 
 #define TARGET_MICROSECONDS_PER_FRAME 16667
 
-#pragma warning(disable: 4820) // Disable structure padding warning
-#pragma warning(disable: 5045) // Disable Spectre warning
+#define KEY_STATE_DOWN(K) ((K & 0x8001))
 
 typedef struct VideoBitmap
 {
@@ -30,6 +31,7 @@ typedef struct PerformanceMetrics
     double fps_avg;
     int32_t monitor_width;
     int32_t monitor_height;
+    BOOL display_debug_info;
 } PerformanceMetrics;
 
 LRESULT CALLBACK main_window_procedure(_In_ HWND window, _In_ UINT message,

@@ -68,7 +68,6 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
     memset(g_vid_buffer.memory, 0xAF, VID_BUFFER_SIZE);
 
     g_game_is_running = TRUE;
-
     while (g_game_is_running == TRUE)
     {
         QueryPerformanceCounter((LARGE_INTEGER*)&frame_start);
@@ -94,19 +93,13 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
             microseconds_per_frame /= frequency;
         }
 
-        if (total_frames % AVG_FPS_SAMPLE_SIZE == 0)
+        if (total_frames == AVG_FPS_SAMPLE_SIZE)
         {
-            char str[64] = { 0 };
-
             g_perf_metrics.fps_avg =
                 AVG_FPS_SAMPLE_SIZE / (total_microseconds * 0.000001f);
 
-            _snprintf_s(str, _countof(str), _TRUNCATE,
-                        "Avg FPS: %.1f\n",
-                        g_perf_metrics.fps_avg);
-            OutputDebugStringA(str);
-
             total_microseconds = 0;
+            total_frames = 0;
         }
     }
 
@@ -231,13 +224,21 @@ BOOL another_instance_is_active(void)
 
 void process_player_input(void)
 {
-    const int16_t KEYDOWN_MASK = 0x8001;
-    int16_t escape_key_state = GetAsyncKeyState(VK_ESCAPE);
+    int16_t quit_key_state = GetAsyncKeyState(VK_ESCAPE);
+    int16_t debug_key_state = GetAsyncKeyState(VK_F1);
+    static BOOL debug_key_was_down;
 
-    if (escape_key_state & KEYDOWN_MASK)
+    if (KEY_STATE_DOWN(quit_key_state))
     {
         SendMessageA(g_window, WM_CLOSE, 0, 0);
     }
+
+    if (KEY_STATE_DOWN(debug_key_state) && !debug_key_was_down)
+    {
+        g_perf_metrics.display_debug_info = !g_perf_metrics.display_debug_info;
+    }
+
+    debug_key_was_down = KEY_STATE_DOWN(debug_key_state);
 }
 
 void render_graphics(void)
@@ -276,6 +277,15 @@ void render_graphics(void)
                   g_perf_metrics.monitor_height, 0, 0, VID_BUFFER_WIDTH,
                   VID_BUFFER_HEIGHT, g_vid_buffer.memory,
                   &g_vid_buffer.bitmap_info, DIB_RGB_COLORS, SRCCOPY);
+
+    if (g_perf_metrics.display_debug_info == TRUE)
+    {
+        char debug_text_buffer[64] = { 0 };
+        sprintf_s(debug_text_buffer, sizeof(debug_text_buffer), "FPS: %.1f",
+                  g_perf_metrics.fps_avg);
+        TextOutA(device_context, 0, 0, debug_text_buffer,
+                 (int)strlen(debug_text_buffer));
+    }
 
     ReleaseDC(g_window, device_context);
 }
