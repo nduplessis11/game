@@ -85,7 +85,7 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
 
         while (microseconds_per_frame < TARGET_MICROSECONDS_PER_FRAME)
         {
-            Sleep(0);
+            //Sleep(0);
 
             QueryPerformanceCounter((LARGE_INTEGER*)&frame_end);
             microseconds_per_frame = frame_end - frame_start;
