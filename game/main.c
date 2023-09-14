@@ -28,7 +28,6 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
     uint64_t microseconds_per_frame = 0;
     uint64_t total_microseconds = 0;
     uint64_t frequency = 0;
-    float avg_milliseconds_per_frame = 0.0f;
 
 
     if (another_instance_is_active() == TRUE)
@@ -85,8 +84,6 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
 
         while (microseconds_per_frame < TARGET_MICROSECONDS_PER_FRAME)
         {
-            //Sleep(0);
-
             QueryPerformanceCounter((LARGE_INTEGER*)&frame_end);
             microseconds_per_frame = frame_end - frame_start;
 
@@ -102,8 +99,7 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
                 AVG_FPS_SAMPLE_SIZE / (total_microseconds * 0.000001f);
 
             _snprintf_s(str, _countof(str), _TRUNCATE,
-                        "Avg milliseconds per frame: %.2f\tAvg FPS: %.1f\n",
-                        avg_milliseconds_per_frame, 
+                        "Avg FPS: %.1f\n",
                         g_perf_metrics.fps_avg);
             OutputDebugStringA(str);
 
