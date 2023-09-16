@@ -45,3 +45,4 @@ DWORD create_game_window(_In_ HINSTANCE instance);
 BOOL another_instance_is_active(void);
 void process_player_input(void);
 void render_graphics(void);
+void clear_screen(_In_ __m128i color);

@@ -1,10 +1,10 @@
 #pragma warning(push)
 #pragma warning(disable: 4668)
 #include <windows.h>
-#pragma warning(pop)
-
 #include <stdio.h>
 #include <stdint.h>
+#include <emmintrin.h>
+#pragma warning(pop)
 
 #include "main.h"
 
@@ -252,49 +252,49 @@ void process_player_input(void)
 
 void render_graphics(void)
 {
-    Pixel32 green_pixel = { 0 };
-    green_pixel.blue = 0x00;
-    green_pixel.green = 0x6c;
-    green_pixel.red = 0x00;
-    green_pixel.alpha = 0xff;
+    __m128i green_pixel = { 0x00, 0x6c, 0x00, 0xff,
+                            0x00, 0x6c, 0x00, 0xff,
+                            0x00, 0x6c, 0x00, 0xff,
+                            0x00, 0x6c, 0x00, 0xff };
+    __m128i blue_pixel = { 0xea, 0x00, 0x00, 0xff,
+                           0xea, 0x00, 0x00, 0xff,
+                           0xea, 0x00, 0x00, 0xff,
+                           0xea, 0x00, 0x00, 0xff };
+    __m128i red_pixel = { 0x13, 0x00, 0xec, 0xff,
+                          0x13, 0x00, 0xec, 0xff,
+                          0x13, 0x00, 0xec, 0xff,
+                          0x13, 0x00, 0xec, 0xff };
+    __m128i clear_pixel = { 0xcf, 0x00, 0xdf, 0xff,
+                            0xcf, 0x00, 0xdf, 0xff,
+                            0xcf, 0x00, 0xdf, 0xff,
+                            0xcf, 0x00, 0xdf, 0xff };
 
-    Pixel32 blue_pixel = { 0 };
-    blue_pixel.blue = 0xea;
-    blue_pixel.green = 0x00;
-    blue_pixel.red = 0x00;
-    blue_pixel.alpha = 0xff;
+    int32_t x0 = 40;
+    int32_t y0 = 104;
+
+    clear_screen(clear_pixel);
 
     // Draw grass
-    for (int x = 0; x < (GAME_WIDTH * GAME_HEIGHT) / 2; x++)
+    for (int x = 0; x < (GAME_WIDTH * GAME_HEIGHT) / 2; x += 4)
     {
-        memcpy_s((Pixel32*)g_bitmap.memory + x, sizeof(green_pixel),
-                 &green_pixel, sizeof(green_pixel));
+        _mm_store_si128((Pixel32*)g_bitmap.memory + x, green_pixel);
     }
 
     // Draw sky
     for (int x = (GAME_WIDTH * GAME_HEIGHT) / 2;
-         x < (GAME_WIDTH * GAME_HEIGHT); x++)
+         x < (GAME_WIDTH * GAME_HEIGHT); x += 4)
     {
-        memcpy_s((Pixel32*)g_bitmap.memory + x, sizeof(blue_pixel),
-                 &blue_pixel, sizeof(blue_pixel));
+        _mm_store_si128((Pixel32*)g_bitmap.memory + x, blue_pixel);
     }
-
-    Pixel32 red_pixel = { 0 };
-    red_pixel.blue = 0x13;
-    red_pixel.green = 0x00;
-    red_pixel.red = 0xec;
-    red_pixel.alpha = 0xff;
-    int32_t x0 = 40;
-    int32_t y0 = 104;
 
     // 16x16 Sprite
     for (int32_t y = 0; y < 16; y++)
     {
-        for (int32_t x = 0; x < 16; x++)
+        for (int32_t x = 0; x < 16; x += 4)
         {
-            memcpy_s(
+            _mm_store_si128(
                 (Pixel32*)g_bitmap.memory + DRAW_PIXEL(x0 + x, y0 + y),
-                sizeof(red_pixel), &red_pixel, sizeof(red_pixel));
+                red_pixel);
         }
     }
     HDC device_context = GetDC(g_window);
@@ -321,4 +321,12 @@ void render_graphics(void)
     }
 
     ReleaseDC(g_window, device_context);
+}
+
+__forceinline void clear_screen(_In_ __m128i color)
+{
+    for (int x = 0; x < (GAME_WIDTH * GAME_HEIGHT); x += 4)
+    {
+        _mm_store_si128((Pixel32*)g_bitmap.memory + x, color);
+    }
 }
