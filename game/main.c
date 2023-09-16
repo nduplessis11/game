@@ -10,7 +10,7 @@
 
 HWND g_window = { 0 };
 BOOL g_game_is_running = FALSE;
-GameBitmap g_vid_buffer = { 0 };
+GameBitmap g_bitmap = { 0 };
 DebugInfo g_debug_info = { 0 };
 
 int WINAPI WinMain(_In_ HINSTANCE instance,
@@ -26,6 +26,7 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
     uint64_t frame_end = 0;
     uint64_t total_frames = 0;
     uint64_t microseconds_per_frame = 0;
+    uint64_t total_microseconds_raw = 0;
     uint64_t total_microseconds = 0;
     uint64_t frequency = 0;
 
@@ -48,24 +49,24 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
 
     QueryPerformanceFrequency((LARGE_INTEGER*)&frequency);
 
-    g_vid_buffer.bitmap_info.bmiHeader.biSize =
-        sizeof(g_vid_buffer.bitmap_info.bmiHeader);
-    g_vid_buffer.bitmap_info.bmiHeader.biWidth = GAME_WIDTH;
-    g_vid_buffer.bitmap_info.bmiHeader.biHeight = GAME_HEIGHT;
-    g_vid_buffer.bitmap_info.bmiHeader.biBitCount = VID_BPP;
-    g_vid_buffer.bitmap_info.bmiHeader.biCompression = BI_RGB;
-    g_vid_buffer.bitmap_info.bmiHeader.biPlanes = 1;
-    g_vid_buffer.memory = VirtualAlloc(NULL, VID_BUFFER_SIZE,
-                                       MEM_RESERVE | MEM_COMMIT,
-                                       PAGE_READWRITE);
-    if (g_vid_buffer.memory == NULL)
+    g_bitmap.bitmap_info.bmiHeader.biSize =
+        sizeof(g_bitmap.bitmap_info.bmiHeader);
+    g_bitmap.bitmap_info.bmiHeader.biWidth = GAME_WIDTH;
+    g_bitmap.bitmap_info.bmiHeader.biHeight = GAME_HEIGHT;
+    g_bitmap.bitmap_info.bmiHeader.biBitCount = VID_BPP;
+    g_bitmap.bitmap_info.bmiHeader.biCompression = BI_RGB;
+    g_bitmap.bitmap_info.bmiHeader.biPlanes = 1;
+    g_bitmap.memory = VirtualAlloc(NULL, VID_BUFFER_SIZE,
+                                   MEM_RESERVE | MEM_COMMIT,
+                                   PAGE_READWRITE);
+    if (g_bitmap.memory == NULL)
     {
         MessageBoxA(NULL, "Failed to allocate video buffer!", "Error!",
                     MB_ICONEXCLAMATION | MB_OK);
         goto Exit;
     }
 
-    memset(g_vid_buffer.memory, 0xAF, VID_BUFFER_SIZE);
+    memset(g_bitmap.memory, 0xAF, VID_BUFFER_SIZE);
 
     g_game_is_running = TRUE;
     while (g_game_is_running == TRUE)
@@ -80,24 +81,33 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         process_player_input();
         render_graphics();
 
+        // Before frame limiting
+        QueryPerformanceCounter((LARGE_INTEGER*)&frame_end);
+        microseconds_per_frame = frame_end - frame_start;
+        microseconds_per_frame *= 1000000;
+        microseconds_per_frame /= frequency;
         total_frames++;
-        total_microseconds += microseconds_per_frame;
+        total_microseconds_raw += microseconds_per_frame;
 
         // Spend the same amount of time on each frame
         while (microseconds_per_frame < TARGET_MICROSECONDS_PER_FRAME)
         {
-            QueryPerformanceCounter((LARGE_INTEGER*)&frame_end);
             microseconds_per_frame = frame_end - frame_start;
-
             microseconds_per_frame *= 1000000;
             microseconds_per_frame /= frequency;
+            QueryPerformanceCounter((LARGE_INTEGER*)&frame_end);
         }
+        total_microseconds += microseconds_per_frame;
 
         if (total_frames == AVG_FPS_SAMPLE_SIZE)
         {
+            g_debug_info.fps_avg_raw =
+                AVG_FPS_SAMPLE_SIZE / (total_microseconds_raw * 0.000001f);
+
             g_debug_info.fps_avg =
                 AVG_FPS_SAMPLE_SIZE / (total_microseconds * 0.000001f);
 
+            total_microseconds_raw = 0;
             total_microseconds = 0;
             total_frames = 0;
         }
@@ -257,7 +267,7 @@ void render_graphics(void)
     // Draw grass
     for (int x = 0; x < (GAME_WIDTH * GAME_HEIGHT) / 2; x++)
     {
-        memcpy_s((Pixel32*)g_vid_buffer.memory + x, sizeof(green_pixel),
+        memcpy_s((Pixel32*)g_bitmap.memory + x, sizeof(green_pixel),
                  &green_pixel, sizeof(green_pixel));
     }
 
@@ -265,7 +275,7 @@ void render_graphics(void)
     for (int x = (GAME_WIDTH * GAME_HEIGHT) / 2;
          x < (GAME_WIDTH * GAME_HEIGHT); x++)
     {
-        memcpy_s((Pixel32*)g_vid_buffer.memory + x, sizeof(blue_pixel),
+        memcpy_s((Pixel32*)g_bitmap.memory + x, sizeof(blue_pixel),
                  &blue_pixel, sizeof(blue_pixel));
     }
 
@@ -274,32 +284,39 @@ void render_graphics(void)
     red_pixel.green = 0x00;
     red_pixel.red = 0xec;
     red_pixel.alpha = 0xff;
-    int32_t pxl_x = 40;
-    int32_t pxl_y = 104;
+    int32_t x0 = 40;
+    int32_t y0 = 104;
 
     // 16x16 Sprite
     for (int32_t y = 0; y < 16; y++)
+    {
         for (int32_t x = 0; x < 16; x++)
         {
             memcpy_s(
-                (Pixel32*)g_vid_buffer.memory + DRAW_PIXEL(pxl_x + x, pxl_y + y),
+                (Pixel32*)g_bitmap.memory + DRAW_PIXEL(x0 + x, y0 + y),
                 sizeof(red_pixel), &red_pixel, sizeof(red_pixel));
         }
-
+    }
     HDC device_context = GetDC(g_window);
 
     // Might replace with BitBlit if performance is needing
     StretchDIBits(device_context, 0, 0, g_debug_info.monitor_width,
                   g_debug_info.monitor_height, 0, 0, GAME_WIDTH,
-                  GAME_HEIGHT, g_vid_buffer.memory,
-                  &g_vid_buffer.bitmap_info, DIB_RGB_COLORS, SRCCOPY);
+                  GAME_HEIGHT, g_bitmap.memory,
+                  &g_bitmap.bitmap_info, DIB_RGB_COLORS, SRCCOPY);
 
     if (g_debug_info.display_debug_info == TRUE)
     {
         char debug_text_buffer[64] = { 0 };
+
+        sprintf_s(debug_text_buffer, sizeof(debug_text_buffer),
+                  "FPS Raw: %.1f", g_debug_info.fps_avg_raw);
+        TextOutA(device_context, 0, 0, debug_text_buffer,
+                 (int)strlen(debug_text_buffer));
+
         sprintf_s(debug_text_buffer, sizeof(debug_text_buffer), "FPS: %.1f",
                   g_debug_info.fps_avg);
-        TextOutA(device_context, 0, 0, debug_text_buffer,
+        TextOutA(device_context, 0, 16, debug_text_buffer,
                  (int)strlen(debug_text_buffer));
     }
 

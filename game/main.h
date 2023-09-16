@@ -32,6 +32,7 @@ typedef struct Pixel32
 typedef struct DebugInfo
 {
     double fps_avg;
+    double fps_avg_raw;
     int32_t monitor_width;
     int32_t monitor_height;
     BOOL display_debug_info;
