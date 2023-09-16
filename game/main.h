@@ -10,7 +10,11 @@
 #define AVG_FPS_SAMPLE_SIZE 100 
 #define TARGET_MICROSECONDS_PER_FRAME 16667
 
-#define KEY_STATE_DOWN(K) ((K & 0x8001))
+#define SCREEN_ORIGIN \
+    ((VID_BUFFER_WIDTH * VID_BUFFER_HEIGHT) - VID_BUFFER_WIDTH)
+#define DRAW_PIXEL(X, Y) (SCREEN_ORIGIN - (VID_BUFFER_WIDTH * (Y)) + (X))
+
+#define KEY_STATE_DOWN(K) ((K) & 0x8000)
 
 typedef struct VideoBitmap
 {

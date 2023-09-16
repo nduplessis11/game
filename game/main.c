@@ -270,6 +270,23 @@ void render_graphics(void)
                  &blue_pixel, sizeof(blue_pixel));
     }
 
+    Pixel32 red_pixel = { 0 };
+    red_pixel.blue = 0x13;
+    red_pixel.green = 0x00;
+    red_pixel.red = 0xec;
+    red_pixel.alpha = 0xff;
+    int32_t pxl_x = 40;
+    int32_t pxl_y = 104;
+
+    // 16x16 Sprite
+    for (int32_t y = 0; y < 16; y++)
+    for (int32_t x = 0; x < 16; x++)
+    {
+        memcpy_s(
+            (Pixel32*)g_vid_buffer.memory + DRAW_PIXEL(pxl_x + x, pxl_y + y),
+                 sizeof(red_pixel), &red_pixel, sizeof(red_pixel));
+    }
+
     HDC device_context = GetDC(g_window);
 
     // Might replace with BitBlit if performance is needing
