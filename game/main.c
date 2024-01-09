@@ -74,7 +74,9 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         QueryPerformanceCounter((LARGE_INTEGER*)&frame_start);
         while (PeekMessageA(&message, g_window, 0, 0, PM_REMOVE))
         {
+            // Keyboard and mouse conversion
             TranslateMessage(&message);
+            // Sends to my callback function main_window_procedure
             DispatchMessageA(&message);
         }
 
@@ -90,6 +92,7 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         total_microseconds_raw += microseconds_per_frame;
 
         // Spend the same amount of time on each frame
+        // Might want to use Win32 multimedia timers here
         while (microseconds_per_frame < TARGET_MICROSECONDS_PER_FRAME)
         {
             microseconds_per_frame = frame_end - frame_start;
@@ -247,6 +250,7 @@ void process_player_input(void)
         g_debug_info.display_debug_info = !g_debug_info.display_debug_info;
     }
 
+    // Display performance stats
     debug_key_was_down = KEY_STATE_DOWN(debug_key_state);
 }
 
@@ -274,13 +278,13 @@ void render_graphics(void)
 
     clear_screen(clear_pixel);
 
-    // Draw grass
+    // Draw grass 4 vertices at a time with SIMD
     for (int x = 0; x < (GAME_WIDTH * GAME_HEIGHT) / 2; x += 4)
     {
         _mm_store_si128((Pixel32*)g_bitmap.memory + x, green_pixel);
     }
 
-    // Draw sky
+    // Draw sky 4 vertices at a time with SIMD
     for (int x = (GAME_WIDTH * GAME_HEIGHT) / 2;
          x < (GAME_WIDTH * GAME_HEIGHT); x += 4)
     {
