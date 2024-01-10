@@ -74,9 +74,8 @@ int WINAPI WinMain(_In_ HINSTANCE instance,
         QueryPerformanceCounter((LARGE_INTEGER*)&frame_start);
         while (PeekMessageA(&message, g_window, 0, 0, PM_REMOVE))
         {
-            // Keyboard and mouse conversion
-            TranslateMessage(&message);
-            // Sends to my callback function main_window_procedure
+            // No TranslateMessage needed for game controls
+            // Sends msg to callback func 'main_window_procedure'
             DispatchMessageA(&message);
         }
 
